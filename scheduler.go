@@ -22,12 +22,9 @@ func callAPI() {
 	now := time.Now()
 	dateStrToday := now.Format("2006012")
 
-	// Get previous day's date and format it to "YYYYMD"
-	prevDay := now.AddDate(0, 0, -1)
-	dateStrPrevDay := prevDay.Format("2006012")
 	// Define the request payload
 	payload := map[string]interface{}{
-		"date_str": []string{dateStrToday, dateStrPrevDay},
+		"date_str": []string{dateStrToday},
 		"backfill": true,
 		"last":     true,
 		"test":     false,
@@ -56,25 +53,24 @@ func callAPI() {
 	log.Printf("API Response Status: %s", resp.Status)
 }
 
-func scheduleDaily(f func(), hour, minute int) {
+func scheduleDaily(f func()) {
 	now := time.Now()
 	// Calculate next occurrence of the specified time
-	next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+	next := now.Truncate(time.Hour).Add(time.Hour)
 	if next.Before(now) {
-		// If it's already past the time today, schedule for tomorrow
-		next = next.Add(24 * time.Hour)
+		next = next.Add(2 * time.Hour)
 	}
 	time.Sleep(next.Sub(now)) // Sleep until the next occurrence
 	go f()                    // Run the function in a new goroutine
 
 	for {
 		// Sleep for 24 hours, then run again
-		time.Sleep(24 * time.Hour)
+		time.Sleep(2 * time.Hour)
 		go f()
 	}
 }
 
 func main() {
 	// Schedule the API call function daily at 7:00 AM
-	scheduleDaily(callAPI, 7, 0)
+	scheduleDaily(callAPI)
 }
