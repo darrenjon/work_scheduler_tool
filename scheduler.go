@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -20,7 +21,7 @@ func callAPI() {
 	apiUrl := os.Getenv("EKG_SCAN_API")
 	// Get current date and format it to "YYYYMD"
 	now := time.Now()
-	dateStrToday := now.Format("2006012")
+	dateStrToday := fmt.Sprintf("%d%d%d", now.Year(), int(now.Month()), now.Day())
 
 	// Define the request payload
 	payload := map[string]interface{}{
@@ -33,6 +34,9 @@ func callAPI() {
 	if err != nil {
 		log.Fatalf("Error encoding payload: %v", err)
 	}
+
+	// Print the request payload
+	log.Printf("API Request Payload: %s", string(payloadBytes))
 
 	// Create a new request using http
 	req, err := http.NewRequest("POST", apiUrl, bytes.NewBuffer(payloadBytes))
@@ -51,6 +55,16 @@ func callAPI() {
 
 	// Log the response status
 	log.Printf("API Response Status: %s", resp.Status)
+
+	// Decode the JSON response
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		log.Fatalf("Error decoding JSON response: %v", err)
+	}
+
+	// Print the response
+	log.Printf("API Response: %v", result)
 }
 
 func scheduleDaily(f func()) {
@@ -61,16 +75,16 @@ func scheduleDaily(f func()) {
 		next = next.Add(2 * time.Hour)
 	}
 	time.Sleep(next.Sub(now)) // Sleep until the next occurrence
-	go f()                    // Run the function in a new goroutine
+	go f()
 
 	for {
-		// Sleep for 24 hours, then run again
+		// Sleep for 2 hour before scheduling the next occurrence
 		time.Sleep(2 * time.Hour)
 		go f()
 	}
 }
 
 func main() {
-	// Schedule the API call function daily at 7:00 AM
+	log.Println("Starting scheduler...")
 	scheduleDaily(callAPI)
 }
