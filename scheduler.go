@@ -12,13 +12,42 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func callAPI() {
-	// Load .env file
-	err := godotenv.Load()
+func callAPI(apiUrl string, payloadBytes []byte) {
+	// Create a new request using http
+	req, err := http.NewRequest("POST", apiUrl, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Printf("Error creating request: %v", err)
+		return
 	}
-	apiUrl := os.Getenv("EKG_SCAN_API")
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request via a client
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error sending request: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	log.Printf("API Response Status: %s", resp.Status)
+
+	// Decode the JSON response
+	var result map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		log.Printf("Error decoding JSON response: %v", err)
+		return
+	}
+
+	// Print the response
+	log.Printf("API Response: %v", result)
+}
+
+func scheduleEkgScanApi() {
+	log.Println("Running EKG_SCAN_API...")
+	ekgScanApiUrl := os.Getenv("EKG_SCAN_API")
+
 	// Get current date and format it to "YYYYMD"
 	now := time.Now()
 	dateStrToday := fmt.Sprintf("%d%d%d", now.Year(), int(now.Month()), now.Day())
@@ -32,59 +61,56 @@ func callAPI() {
 	}
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		log.Fatalf("Error encoding payload: %v", err)
+		log.Printf("Error encoding payload: %v", err)
 	}
 
-	// Print the request payload
 	log.Printf("API Request Payload: %s", string(payloadBytes))
 
-	// Create a new request using http
-	req, err := http.NewRequest("POST", apiUrl, bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		log.Fatalf("Error creating request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	// Send the request via a client
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("Error sending request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Log the response status
-	log.Printf("API Response Status: %s", resp.Status)
-
-	// Decode the JSON response
-	var result map[string]interface{}
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		log.Fatalf("Error decoding JSON response: %v", err)
-	}
-
-	// Print the response
-	log.Printf("API Response: %v", result)
+	// Call EKG_SCAN_API
+	callAPI(ekgScanApiUrl, payloadBytes)
 }
 
-func scheduleDaily(f func()) {
+func scheduleIpdHandoverApi() {
+	log.Println("Running HANDOVER_UPDATE_API...")
+	ipdHandoverApiUrl := os.Getenv("HANDOVER_UPDATE_API")
+
+	callAPI(ipdHandoverApiUrl, nil)
+}
+
+func scheduleIpdHandoverApiShh() {
+	log.Println("Running HANDOVER_UPDATE_API_SHH...")
+	ipdHandoverApiUrlShh := os.Getenv("HANDOVER_UPDATE_API_SHH")
+
+	callAPI(ipdHandoverApiUrlShh, nil)
+}
+
+func scheduleDaily(f func(), interval time.Duration, start time.Duration) {
 	now := time.Now()
-	// Calculate next occurrence of the specified time
-	next := now.Truncate(time.Hour).Add(time.Hour)
+	next := now.Truncate(time.Hour).Add(start)
 	if next.Before(now) {
-		next = next.Add(2 * time.Hour)
+		next = next.Add(interval)
 	}
-	time.Sleep(next.Sub(now)) // Sleep until the next occurrence
+
+	time.Sleep(next.Sub(now))
 	go f()
 
 	for {
-		// Sleep for 2 hour before scheduling the next occurrence
-		time.Sleep(2 * time.Hour)
+		time.Sleep(interval)
 		go f()
 	}
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	log.Println("Starting scheduler...")
-	scheduleDaily(callAPI)
+
+	go scheduleDaily(scheduleEkgScanApi, 1*time.Hour, 0)
+	go scheduleDaily(scheduleIpdHandoverApi, 30*time.Minute, 30*time.Minute)
+	go scheduleDaily(scheduleIpdHandoverApiShh, 30*time.Minute, 30*time.Minute)
+
+	// Wait indefinitely
+	select {}
 }
