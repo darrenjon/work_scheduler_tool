@@ -84,6 +84,13 @@ func scheduleIpdHandoverApiShh() {
 	callAPI(ipdHandoverApiUrlShh, nil)
 }
 
+func scheduleIpdHandoverApiTmu() {
+	log.Println("Running HANDOVER_UPDATE_API_TMU...")
+	ipdHandoverApiUrlTmu := os.Getenv("HANDOVER_UPDATE_API_TMU")
+
+	callAPI(ipdHandoverApiUrlTmu, nil)
+}
+
 func scheduleDaily(f func(), interval time.Duration, start time.Duration) {
 	now := time.Now()
 	next := now.Truncate(time.Hour).Add(start)
@@ -107,9 +114,10 @@ func main() {
 	}
 	log.Println("Starting scheduler...")
 
-	go scheduleDaily(scheduleEkgScanApi, 1*time.Hour, 0)
-	go scheduleDaily(scheduleIpdHandoverApi, 30*time.Minute, 30*time.Minute)
+	go scheduleDaily(scheduleEkgScanApi, 30*time.Minute, 0)
+	go scheduleDaily(scheduleIpdHandoverApi, 20*time.Minute, 30*time.Minute)
 	go scheduleDaily(scheduleIpdHandoverApiShh, 30*time.Minute, 30*time.Minute)
+	go scheduleDaily(scheduleIpdHandoverApiTmu, 30*time.Minute, 30*time.Minute)
 
 	// Wait indefinitely
 	select {}
