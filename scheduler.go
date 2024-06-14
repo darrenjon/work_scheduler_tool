@@ -55,8 +55,8 @@ func scheduleEkgScanApi() {
 	// Define the request payload
 	payload := map[string]interface{}{
 		"date_str": []string{dateStrToday},
-		"backfill": true,
-		"last":     true,
+		"backfill": false,
+		"last":     false,
 		"test":     false,
 	}
 	payloadBytes, err := json.Marshal(payload)
